@@ -1,0 +1,34 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+
+# .NET
+bin/
+obj/
+*.user
+.secrets/
+
+# SQLite database (local dev + docker bind mount)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Uploaded files
+wwwroot/uploads/*
+!wwwroot/uploads/.gitkeep
+uploads/
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+logs/
