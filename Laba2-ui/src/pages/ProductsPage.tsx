@@ -13,6 +13,11 @@ import { ProductModal } from '../components/ProductModal'
 import { SearchBar } from '../components/SearchBar'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Toast, type ToastMessage } from '../components/Toast'
+import { AuthDialog } from '../components/AuthDialog'
+import { UserManagementDialog } from '../components/UserManagementDialog'
+import { SessionManagementDialog } from '../components/SessionManagementDialog'
+import { getCurrentUser, getStoredUser, logout, setStoredSession } from '../services/api'
+import type { AuthSession, AuthUser } from '../types/product'
 
 type ModalState = { mode: 'create' } | { mode: 'edit'; product: Product } | null
 
@@ -27,6 +32,10 @@ export function ProductsPage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser())
+  const [authOpen, setAuthOpen] = useState(false)
+  const [usersOpen, setUsersOpen] = useState(false)
+  const [sessionsOpen, setSessionsOpen] = useState(false)
   const toastId = useRef(0)
 
   const load = useCallback(async (term: string) => {
@@ -60,6 +69,22 @@ export function ProductsPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!getStoredUser()) return
+    let active = true
+    void getCurrentUser()
+      .then((currentUser) => { if (active) setUser(currentUser) })
+      .catch((error: unknown) => {
+        if (active && error instanceof ApiError && error.status === 401) {
+          setStoredSession(null)
+          setUser(null)
+        }
+      })
+    return () => { active = false }
+  }, [])
+
+  const canManageProducts = user?.role === 'admin' || user?.role === 'editor'
+
   const handleSearch = useCallback(
     (term: string) => {
       setSearch(term)
@@ -75,6 +100,23 @@ export function ProductsPage() {
       setToasts((prev) => prev.filter((toast) => toast.id !== id))
     }, 4000)
   }, [])
+
+  const handleAuthenticated = useCallback((session: AuthSession) => {
+    setUser(session.user)
+    setAuthOpen(false)
+    notify('success', `Signed in as ${session.user.role}`)
+  }, [notify])
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout()
+    } catch (error) {
+      notify('error', error instanceof ApiError ? error.message : 'Could not sign out.')
+    } finally {
+      setStoredSession(null)
+      setUser(null)
+    }
+  }, [notify])
 
   const dismissToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id))
@@ -152,9 +194,25 @@ export function ProductsPage() {
     <div className="page">
       <header className="page-header">
         <h1 className="page-title">ProductHub</h1>
-        <button type="button" className="btn btn-primary" onClick={() => setModal({ mode: 'create' })}>
-          <span className="btn-plus">+</span> Add Product
-        </button>
+        <div className="header-actions">
+          {user && <span className="user-label">{user.email} · {user.role}</span>}
+          {user?.role === 'admin' && (
+            <button type="button" className="btn" onClick={() => setUsersOpen(true)}>Manage users</button>
+          )}
+          {user ? (
+            <>
+              <button type="button" className="btn" onClick={() => setSessionsOpen(true)}>Sessions</button>
+              <button type="button" className="btn" onClick={() => void handleLogout()}>Sign out</button>
+            </>
+          ) : (
+            <button type="button" className="btn" onClick={() => setAuthOpen(true)}>Sign in</button>
+          )}
+          {canManageProducts && (
+            <button type="button" className="btn btn-primary" onClick={() => setModal({ mode: 'create' })}>
+              <span className="btn-plus">+</span> Add Product
+            </button>
+          )}
+        </div>
       </header>
 
       <SearchBar onChange={handleSearch} disabled={status === 'loading'} />
@@ -185,7 +243,7 @@ export function ProductsPage() {
           <p className="state-text">
             {search.trim() ? 'No products found for this search.' : 'No products found'}
           </p>
-          {!search.trim() && (
+          {!search.trim() && canManageProducts && (
             <button type="button" className="btn btn-primary" onClick={() => setModal({ mode: 'create' })}>
               Create the first product
             </button>
@@ -199,6 +257,7 @@ export function ProductsPage() {
             <ProductCard
               key={product.id}
               product={product}
+              canManage={canManageProducts}
               onEdit={(productToEdit) => {
                 setFieldErrors({})
                 setModal({ mode: 'edit', product: productToEdit })
@@ -237,6 +296,12 @@ export function ProductsPage() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+
+      {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onAuthenticated={handleAuthenticated} />}
+      {usersOpen && user?.role === 'admin' && (
+        <UserManagementDialog currentUserId={user.id} onClose={() => setUsersOpen(false)} />
+      )}
+      {sessionsOpen && user && <SessionManagementDialog onClose={() => setSessionsOpen(false)} />}
 
       <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>

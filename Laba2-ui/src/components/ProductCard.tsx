@@ -3,6 +3,7 @@ import { imageSrc } from '../services/api'
 
 interface ProductCardProps {
   product: Product
+  canManage: boolean
   onEdit: (product: Product) => void
   onDelete: (product: Product) => void
 }
@@ -12,7 +13,7 @@ const priceFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
 })
 
-export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
+export function ProductCard({ product, canManage, onEdit, onDelete }: ProductCardProps) {
   return (
     <article className="product-card">
       <div className="product-image">
@@ -48,22 +49,24 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
         )}
         <div className="product-footer">
           <span className="product-price">{priceFormatter.format(product.price)}</span>
-          <div className="product-actions">
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => onEdit(product)}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-danger-outline"
-              onClick={() => onDelete(product)}
-            >
-              Delete
-            </button>
-          </div>
+          {canManage && (
+            <div className="product-actions">
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => onEdit(product)}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-danger-outline"
+                onClick={() => onDelete(product)}
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </article>

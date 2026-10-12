@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { requireAuth, requireRole } from '../middlewares/auth.js'
 import { uploadSingleImage, discardUpload } from '../middlewares/upload.js'
 import {
   createProduct,
@@ -37,7 +38,7 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const id = parseId(req.params.id)
   if (id === null) {
-    res.status(404).json({ message: `Product with id ${req.params.id} was not found.` })
+    res.status(400).json({ message: 'Product id must be a positive integer.' })
     return
   }
 
@@ -51,7 +52,7 @@ router.get('/:id', (req, res) => {
 })
 
 // POST /api/products
-router.post('/', uploadSingleImage, (req, res) => {
+router.post('/', requireAuth, requireRole('admin', 'editor'), uploadSingleImage, (req, res) => {
   const { name, description, price, category } = req.body
   const errors = validate({ name, description, price, category })
 
@@ -68,11 +69,11 @@ router.post('/', uploadSingleImage, (req, res) => {
 })
 
 // PUT /api/products/:id
-router.put('/:id', uploadSingleImage, (req, res) => {
+router.put('/:id', requireAuth, requireRole('admin', 'editor'), uploadSingleImage, (req, res) => {
   const id = parseId(req.params.id)
   if (id === null) {
     discardUpload(req.file)
-    res.status(404).json({ message: `Product with id ${req.params.id} was not found.` })
+    res.status(400).json({ message: 'Product id must be a positive integer.' })
     return
   }
 
@@ -106,10 +107,10 @@ router.put('/:id', uploadSingleImage, (req, res) => {
 })
 
 // DELETE /api/products/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireAuth, requireRole('admin', 'editor'), (req, res) => {
   const id = parseId(req.params.id)
   if (id === null) {
-    res.status(404).json({ message: `Product with id ${req.params.id} was not found.` })
+    res.status(400).json({ message: 'Product id must be a positive integer.' })
     return
   }
 

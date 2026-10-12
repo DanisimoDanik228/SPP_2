@@ -25,6 +25,9 @@ Full-stack single-page application for managing a product catalog with **no page
 SPP_2/
 ├── backend/                # Node.js REST API
 │   ├── src/
+│   │   ├── routes/         # products and authentication endpoints
+│   │   ├── services/       # catalog and authentication services
+│   │   ├── middlewares/    # authorization and image validation
 │   │   ├── routes/         # products routes (CRUD)
 │   │   ├── services/       # productService (queries, file deletion)
 │   │   ├── middlewares/    # multer upload (image validation)
@@ -66,6 +69,21 @@ docker compose up --build
 
 The SQLite database and uploaded images are stored in bind-mount volumes (`./data`, `./uploads`) and survive container restarts.
 
+Authentication and recovery require environment configuration. Create a local `.env` file (do not commit it) before starting Compose:
+
+```dotenv
+AUTH_ADMIN_EMAIL=admin@example.com
+AUTH_ADMIN_PASSWORD=replace-with-a-unique-password-of-at-least-12-characters
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=mailer@example.com
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM=ProductHub <mailer@example.com>
+```
+
+The configured admin account is created on first startup only; changing these variables will not overwrite an existing account. New registrations receive the `viewer` role. An administrator can promote users to `editor` (catalog read/write) or `admin` (user and role management) using **Manage users**. Public catalog reads remain available. All access keys are random, time-limited bearer tokens; passwords are stored using scrypt hashes. The default key lifetime is 8 hours and at most 3 live sessions per user are allowed. Sessions can be listed and revoked through the authentication API. Password recovery tokens are single-use and expire after 30 minutes; configure SMTP to deliver recovery messages. Use HTTPS in production.
+
 ### Option 2 — Local development
 
 Backend (port 8080):
@@ -96,6 +114,24 @@ npm run dev
 | DELETE | `/api/products/{id}`    | —                  | 204     |
 
 Common errors: `400 Bad Request` (validation), `404 Not Found` (missing product).
+
+Product creation, update and deletion require an authenticated `editor` or `admin` account. Missing/expired credentials return `401`, insufficient role returns `403`, throttled authentication requests return `429` with `Retry-After`, oversized requests return `413`, and unsupported image types return `415`. API errors include a request ID; HTTP access and server errors are emitted as structured JSON logs without credentials or request bodies.
+
+Authentication endpoints:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| POST | `/api/auth/register` | Create a viewer account and start a session |
+| POST | `/api/auth/login` | Verify credentials and issue a temporary bearer key |
+| POST | `/api/auth/logout` | Revoke the current session |
+| GET | `/api/auth/me` | Get the current account and role |
+| GET / DELETE | `/api/auth/sessions` (`/:id` for DELETE) | List or revoke active sessions |
+| POST | `/api/auth/password/forgot` | Send a time-limited reset token by email |
+| POST | `/api/auth/password/reset` | Consume a reset token and set a new password |
+| GET | `/api/auth/users` | List accounts (admin only) |
+| PATCH | `/api/auth/users/{id}/role` | Change an account role (admin only) |
+
+Login failures are rate-limited by account and client IP; recovery requests are rate-limited by IP. The initial admin can be bootstrapped with `AUTH_ADMIN_EMAIL` and `AUTH_ADMIN_PASSWORD`. Never use default or shared passwords. SMTP and bootstrap secrets should be supplied by a secret manager in production.
 
 `POST /api/products` fields:
 
@@ -136,6 +172,10 @@ Validation errors return:
 ## Swagger
 
 Open http://localhost:8080/swagger to test every endpoint, including `multipart/form-data` uploads (use the "Try it out" button).
+
+## Automated checks
+
+GitHub Actions runs the backend syntax/integration tests and the frontend lint/build checks on every push and pull request. Locally run `cd backend && npm run check && npm test`, then `cd Laba2-ui && npm run lint && npm run build`.
 
 ## Frontend features
 

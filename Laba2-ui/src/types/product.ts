@@ -20,3 +20,25 @@ export interface ApiErrorBody {
   message?: string
   errors?: Record<string, string[]>
 }
+
+export type UserRole = 'admin' | 'editor' | 'viewer'
+
+export interface AuthUser {
+  id: number
+  email: string
+  role: UserRole
+  createdAt: string
+}
+
+export interface AuthSession {
+  token: string
+  expiresAt: string
+  user: AuthUser
+}
+
+export interface AuthSessionSummary {
+  id: number
+  createdAt: string
+  expiresAt: string
+  current: boolean
+}

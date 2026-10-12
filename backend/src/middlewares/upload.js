@@ -49,5 +49,11 @@ export function discardUpload(file) {
   if (!file) {
     return
   }
-  fs.unlink(file.path, () => {})
+  try {
+    fs.unlinkSync(file.path)
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error
+    }
+  }
 }
